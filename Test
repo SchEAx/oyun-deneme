@@ -1,0 +1,294 @@
+import React, { useMemo, useState } from "react"; import { motion, AnimatePresence } from "framer-motion"; import { Play, LogIn, Settings, Copy, Users, Check, X, Lightbulb, Timer, Trophy, RotateCcw } from "lucide-react";
+
+const cn = (...classes: (string | false | null | undefined)[]) => classes.filter(Boolean).join(" ");
+
+type Screen = "menu" | "host" | "join" | "lobby" | "word" | "game" | "result" | "settings";
+
+type Player = { id: string; nick: string; ready: boolean; score: number; word?: string; hint?: string; };
+
+type RoundAssignment = { ownerId: string; targetId: string; word: string; hint: string; };
+
+const randomRoomCode = () => Array.from({ length: 10 }, () => Math.floor(Math.random() * 10)).join("");
+
+const samplePlayers = ["Ali", "Veli", "Mert", "Ayaz"];
+
+const alphabet = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ".split("");
+
+function shuffle<T>(arr: T[]) { const copy = [...arr]; for (let i = copy.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; } return copy; }
+
+function assignWords(players: Player[]): RoundAssignment[] { const valid = players.filter((p) => p.word && p.hint); const ids = valid.map((p) => p.id); let targets = shuffle(ids);
+
+// nobody gets own word for (let guard = 0; guard < 20; guard++) { if (targets.every((t, i) => t !== ids[i])) break; targets = shuffle(ids); }
+
+// final fallback for 2 players or stubborn shuffle if (!targets.every((t, i) => t !== ids[i]) && ids.length >= 2) { targets = [...ids.slice(1), ids[0]]; }
+
+return valid.map((p, i) => ({ ownerId: p.id, targetId: targets[i], word: p.word || "", hint: p.hint || "", })); }
+
+function maskWord(word: string, guessed: string[]) { return word .split("") .map((ch) => { if (ch === " ") return " "; return guessed.includes(ch.toUpperCase()) ? ch.toUpperCase() : "_"; }) .join(" "); }
+
+export default function KelimeArenasiPrototype() { const [screen, setScreen] = useState<Screen>("menu"); const [roomCode, setRoomCode] = useState(""); const [joinCode, setJoinCode] = useState(""); const [nick, setNick] = useState("Enes"); const [hostId, setHostId] = useState<string>("host-1"); const [players, setPlayers] = useState<Player[]>([]); const [wordInput, setWordInput] = useState(""); const [hintInput, setHintInput] = useState(""); const [round, setRound] = useState(1); const [assignments, setAssignments] = useState<RoundAssignment[]>([]); const [currentWord, setCurrentWord] = useState(""); const [currentHint, setCurrentHint] = useState(""); const [currentOwnerId, setCurrentOwnerId] = useState(""); const [guessed, setGuessed] = useState<string[]>([]); const [wrongLetters, setWrongLetters] = useState<string[]>([]); const [message, setMessage] = useState("İpucuyu dikkatli oku, harfleri akıllıca seç 😎"); const [musicOn, setMusicOn] = useState(true); const [sfxOn, setSfxOn] = useState(true);
+
+const me = players.find((p) => p.id === hostId); const currentOwner = players.find((p) => p.id === currentOwnerId); const revealedWord = useMemo(() => maskWord(currentWord, guessed), [currentWord, guessed]);
+
+const allReady = players.length >= 2 && players.every((p) => p.ready);
+
+const startHostFlow = () => { const code = randomRoomCode(); setRoomCode(code); const mePlayer: Player = { id: "host-1", nick: nick || "Host", ready: false, score: 0, }; const bots: Player[] = samplePlayers.slice(0, 2).map((name, idx) => ({ id: bot-${idx}, nick: name, ready: false, score: 0, })); setPlayers([mePlayer, ...bots]); setScreen("lobby"); };
+
+const startJoinFlow = () => { if (joinCode.trim().length !== 10) return; setRoomCode(joinCode.trim()); const mePlayer: Player = { id: "host-1", nick: nick || "Oyuncu", ready: false, score: 0, }; const others: Player[] = [ { id: "bot-0", nick: "Host", ready: true, score: 0 }, { id: "bot-1", nick: "Mert", ready: false, score: 0 }, ]; setPlayers([mePlayer, ...others]); setScreen("lobby"); };
+
+const toggleReady = () => { setPlayers((prev) => prev.map((p) => (p.id === hostId ? { ...p, ready: !p.ready } : p)) ); };
+
+const fakeReadyOthers = () => { setPlayers((prev) => prev.map((p) => ({ ...p, ready: true }))); };
+
+const goWordPhase = () => { setWordInput(""); setHintInput(""); setScreen("word"); };
+
+const submitWord = () => { if (wordInput.trim().length < 3 || hintInput.trim().length < 2) return;
+
+const updated = players.map((p, idx) => {
+  if (p.id === hostId) return { ...p, word: wordInput.trim(), hint: hintInput.trim() };
+  const demoWords = [
+    { word: "Titanic", hint: "Film" },
+    { word: "Ankara", hint: "Şehir" },
+    { word: "Kaplan", hint: "Hayvan" },
+    { word: "Portekiz", hint: "Ülke" },
+  ];
+  const pick = demoWords[idx % demoWords.length];
+  return { ...p, word: p.word || pick.word, hint: p.hint || pick.hint };
+});
+
+const a = assignWords(updated);
+const myAssignment = a.find((x) => x.targetId === hostId);
+
+setPlayers(updated);
+setAssignments(a);
+setCurrentWord(myAssignment?.word.toUpperCase() || "TITANIC");
+setCurrentHint(myAssignment?.hint || "Film");
+setCurrentOwnerId(myAssignment?.ownerId || updated[1]?.id || "");
+setGuessed([]);
+setWrongLetters([]);
+setRound(1);
+setMessage("İlk tur başladı. Başarılar knk 😎");
+setScreen("game");
+
+};
+
+const handleGuess = (letter: string) => { if (guessed.includes(letter) || wrongLetters.includes(letter)) return;
+
+if (currentWord.includes(letter)) {
+  const nextGuessed = [...guessed, letter];
+  setGuessed(nextGuessed);
+  setMessage(`Güzel! ${letter} harfi doğru 🔥`);
+
+  const solved = currentWord
+    .split("")
+    .every((ch) => ch === " " || nextGuessed.includes(ch));
+
+  if (solved) {
+    setPlayers((prev) =>
+      prev.map((p) => {
+        if (p.id === hostId) return { ...p, score: p.score + 50 };
+        if (p.id === currentOwnerId) return { ...p, score: p.score + 20 };
+        return p;
+      })
+    );
+    setScreen("result");
+  }
+} else {
+  setWrongLetters((prev) => [...prev, letter]);
+  setPlayers((prev) =>
+    prev.map((p) => {
+      if (p.id === hostId) return { ...p, score: p.score - 10 };
+      if (p.id === currentOwnerId) return { ...p, score: p.score + 10 };
+      return p;
+    })
+  );
+  setMessage(`Ooops... ${letter} yanlış. Kelime sahibine +10, sana -10 😅`);
+}
+
+};
+
+const nextRound = () => { if (round >= 5) { setScreen("menu"); setRoomCode(""); setJoinCode(""); setPlayers([]); return; }
+
+const nextIndex = Math.min(round, assignments.length - 1);
+const next = assignments[nextIndex];
+setRound((r) => r + 1);
+setCurrentWord(next.word.toUpperCase());
+setCurrentHint(next.hint);
+setCurrentOwnerId(next.ownerId);
+setGuessed([]);
+setWrongLetters([]);
+setMessage(`Tur ${round + 1} başladı. Yeni kelime geldi 🚀`);
+setScreen("game");
+
+};
+
+const Panel = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => ( <div className={cn("rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl shadow-black/20", className)}>{children}</div> );
+
+const Button = ({ children, onClick, variant = "primary", className = "", disabled = false }: { children: React.ReactNode; onClick?: () => void; variant?: "primary" | "secondary" | "ghost"; className?: string; disabled?: boolean; }) => ( <button disabled={disabled} onClick={onClick} className={cn( "rounded-2xl px-5 py-3 font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50", variant === "primary" && "bg-blue-500 text-white shadow-lg shadow-blue-900/40 hover:bg-blue-400", variant === "secondary" && "bg-violet-500 text-white shadow-lg shadow-violet-900/40 hover:bg-violet-400", variant === "ghost" && "border border-white/15 bg-white/5 text-white hover:bg-white/10", className )} > {children} </button> );
+
+return ( <div className="min-h-screen bg-[radial-gradient(circle_at_top,#172554_0%,#0f172a_35%,#020617_100%)] text-white"> <div className="mx-auto flex min-h-screen max-w-7xl items-center justify-center p-6"> <AnimatePresence mode="wait"> {screen === "menu" && ( <motion.div key="menu" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} className="grid w-full max-w-6xl gap-6 md:grid-cols-[1.2fr_0.8fr]"> <Panel className="relative overflow-hidden p-10"> <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(59,130,246,.15),transparent_35%,rgba(139,92,246,.15))]" /> <div className="relative"> <div className="mb-4 inline-flex rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-1 text-sm text-blue-200">Online kelime savaşı</div> <h1 className="mb-4 text-5xl font-black tracking-tight md:text-6xl">Kelime Arenası</h1> <p className="max-w-2xl text-lg text-slate-300"> Odanı kur, arkadaşlarını çağır, kelimeni yaz ve başkalarının yanlışlarından puan topla. Modern dark arayüzlü, online adam asmaca rekabeti. </p> <div className="mt-8 grid gap-4 sm:grid-cols-3"> <Button onClick={() => setScreen("host")} className="flex items-center justify-center gap-2"><Play size={18} /> Oyunu Başlat</Button> <Button variant="secondary" onClick={() => setScreen("join")} className="flex items-center justify-center gap-2"><LogIn size={18} /> Oyuna Katıl</Button> <Button variant="ghost" onClick={() => setScreen("settings")} className="flex items-center justify-center gap-2"><Settings size={18} /> Ayarlar</Button> </div> </div> </Panel>
+
+<Panel className="p-6">
+            <div className="mb-4 text-sm uppercase tracking-[0.2em] text-slate-400">Oyun Özeti</div>
+            <div className="space-y-4 text-sm text-slate-300">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-2 font-semibold text-white">2–5 Oyuncu</div>
+                <div>Rastgele 10 haneli oda koduyla herkes bağlanır.</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-2 font-semibold text-white">Kelime + İpucu</div>
+                <div>Herkes kendi kelimesini ve ipucunu yazar. Kendi kelimesi kimseye geri dönmez.</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="mb-2 font-semibold text-white">Puan Sistemi</div>
+                <div>Yanlış harf: tahmin eden -10, kelime sahibi +10. Doğru kelime: tahmin eden +50, kelime sahibi +20.</div>
+              </div>
+            </div>
+          </Panel>
+        </motion.div>
+      )}
+
+      {screen === "host" && (
+        <motion.div key="host" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} className="w-full max-w-xl">
+          <Panel className="p-8">
+            <h2 className="mb-2 text-3xl font-bold">Oda Oluştur</h2>
+            <p className="mb-6 text-slate-400">Nickini yaz, tek tıkla oda kur. Sistem sana 10 haneli oda kodu verecek.</p>
+            <label className="mb-2 block text-sm text-slate-300">Nick</label>
+            <input value={nick} onChange={(e) => setNick(e.target.value)} className="mb-6 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 outline-none ring-0 placeholder:text-slate-500" placeholder="Nick gir knk" />
+            <div className="flex gap-3">
+              <Button onClick={startHostFlow}>Odayı Kur</Button>
+              <Button variant="ghost" onClick={() => setScreen("menu")}>Geri</Button>
+            </div>
+          </Panel>
+        </motion.div>
+      )}
+
+      {screen === "join" && (
+        <motion.div key="join" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} className="w-full max-w-xl">
+          <Panel className="p-8">
+            <h2 className="mb-2 text-3xl font-bold">Odaya Katıl</h2>
+            <p className="mb-6 text-slate-400">Oda kodunu ve nickini yaz, direkt lobiye bağlan.</p>
+            <label className="mb-2 block text-sm text-slate-300">Oda Kodu</label>
+            <input value={joinCode} onChange={(e) => setJoinCode(e.target.value.replace(/\D/g, "").slice(0, 10))} className="mb-4 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 outline-none" placeholder="4839201746" />
+            <label className="mb-2 block text-sm text-slate-300">Nick</label>
+            <input value={nick} onChange={(e) => setNick(e.target.value)} className="mb-6 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 outline-none" placeholder="Nick gir knk" />
+            <div className="flex gap-3">
+              <Button onClick={startJoinFlow}>Katıl</Button>
+              <Button variant="ghost" onClick={() => setScreen("menu")}>Geri</Button>
+            </div>
+          </Panel>
+        </motion.div>
+      )}
+
+      {screen === "settings" && (
+        <motion.div key="settings" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} className="w-full max-w-xl">
+          <Panel className="p-8">
+            <h2 className="mb-6 text-3xl font-bold">Ayarlar</h2>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
+                <span>Müzik</span>
+                <Button variant={musicOn ? "primary" : "ghost"} onClick={() => setMusicOn(!musicOn)}>{musicOn ? "Açık" : "Kapalı"}</Button>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-4">
+                <span>Efekt Sesleri</span>
+                <Button variant={sfxOn ? "primary" : "ghost"} onClick={() => setSfxOn(!sfxOn)}>{sfxOn ? "Açık" : "Kapalı"}</Button>
+              </div>
+            </div>
+            <div className="mt-6"><Button variant="ghost" onClick={() => setScreen("menu")}>Geri</Button></div>
+          </Panel>
+        </motion.div>
+      )}
+
+      {screen === "lobby" && (
+        <motion.div key="lobby" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} className="grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_0.6fr]">
+          <Panel className="p-8">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm uppercase tracking-[0.2em] text-slate-400">Oda Kodu</div>
+                <div className="mt-1 flex items-center gap-3 text-3xl font-black tracking-widest">{roomCode}<button className="rounded-xl border border-white/10 p-2 hover:bg-white/10"><Copy size={16} /></button></div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-slate-300">
+                <Users className="mr-2 inline" size={16} /> {players.length}/5 Oyuncu
+              </div>
+            </div>
+            <div className="space-y-3">
+              {players.map((p) => (
+                <div key={p.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-4">
+                  <div>
+                    <div className="font-semibold">{p.nick} {p.id === hostId && <span className="ml-2 rounded-full bg-blue-500/20 px-2 py-1 text-xs text-blue-200">Sen</span>}</div>
+                    <div className="text-sm text-slate-400">{p.id === "host-1" ? "Host" : "Oyuncu"}</div>
+                  </div>
+                  <div className={cn("rounded-full px-3 py-1 text-sm", p.ready ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300")}>{p.ready ? "Hazır" : "Hazır Değil"}</div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+          <Panel className="p-8">
+            <h3 className="mb-4 text-2xl font-bold">Lobi Kontrolü</h3>
+            <div className="space-y-3">
+              <Button onClick={toggleReady} className="w-full flex items-center justify-center gap-2">{me?.ready ? <><X size={18} /> Hazırlığı Kaldır</> : <><Check size={18} /> Hazır</>}</Button>
+              <Button variant="secondary" onClick={fakeReadyOthers} className="w-full">Demo için herkesi hazır yap</Button>
+              <Button variant="ghost" onClick={goWordPhase} disabled={!allReady} className="w-full">Kelime Girişine Geç</Button>
+              <Button variant="ghost" onClick={() => setScreen("menu")} className="w-full">Ana Menü</Button>
+            </div>
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-400">
+              En az 2 kişi ve herkes hazır olunca kelime girişine geçilir.
+            </div>
+          </Panel>
+        </motion.div>
+      )}
+
+      {screen === "word" && (
+        <motion.div key="word" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} className="w-full max-w-2xl">
+          <Panel className="p-8">
+            <h2 className="mb-2 text-3xl font-bold">Kelime ve İpucu Gir</h2>
+            <p className="mb-6 text-slate-400">Kendi kelimen sana gelmeyecek. Güzel bir kazık hazırla 😄</p>
+            <label className="mb-2 block text-sm text-slate-300">Kelime</label>
+            <input value={wordInput} onChange={(e) => setWordInput(e.target.value)} className="mb-4 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 outline-none" placeholder="Örn: Titanic" />
+            <label className="mb-2 block text-sm text-slate-300">İpucu</label>
+            <input value={hintInput} onChange={(e) => setHintInput(e.target.value)} className="mb-6 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 outline-none" placeholder="Örn: Film" />
+            <div className="flex gap-3">
+              <Button onClick={submitWord}>Onayla ve Başlat</Button>
+              <Button variant="ghost" onClick={() => setScreen("lobby")}>Geri</Button>
+            </div>
+          </Panel>
+        </motion.div>
+      )}
+
+      {screen === "game" && (
+        <motion.div key="game" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} className="grid w-full max-w-7xl gap-6 lg:grid-cols-[1fr_320px]">
+          <Panel className="p-8">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-2 text-sm text-slate-300">Tur {round}/5</div>
+              <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-2 text-sm text-slate-300 flex items-center gap-2"><Timer size={16} /> 00:35</div>
+            </div>
+
+            <div className="mb-4 rounded-2xl border border-blue-400/20 bg-blue-400/10 px-4 py-3 text-blue-200 flex items-center gap-2"><Lightbulb size={18} /> İpucu: <span className="font-bold">{currentHint}</span></div>
+            <div className="mb-8 text-center text-4xl font-black tracking-[0.35em] md:text-6xl">{revealedWord}</div>
+            <div className="mb-6 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">{message}</div>
+
+            <div className="grid grid-cols-6 gap-3 md:grid-cols-8 xl:grid-cols-10">
+              {alphabet.map((letter) => {
+                const used = guessed.includes(letter) || wrongLetters.includes(letter);
+                const wrong = wrongLetters.includes(letter);
+                return (
+                  <button
+                    key={letter}
+                    disabled={used}
+                    onClick={() => handleGuess(letter)}
+                    className={cn(
+                      "rounded-2xl border px-3 py-4 text-lg font-bold transition-all",
+                      used ? (wrong ? "border-rose-500/30 bg-rose-500/20 text-rose-200" : "border-emerald-500/30 bg-emerald-500/20 text-emerald-200") : "border-white/10 bg-white/5 text-white hover:bg-white/10"
+                    )}
+                  >
+                    {letter}
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
+
+          <Panel className="p-6">
+            <h3 className="mb-4 text-2xl font-bold">Skor Tablosu</h3>
+            <div className="space-y-3">
+              {[...players].sort((a, b) => b.score - a.score).map((p, idx) => (
