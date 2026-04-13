@@ -326,7 +326,7 @@ let turnTime = 10;
 let turnTimer = null;
 let timerLocked = false;
 
-   const alphabet = "ABCÇDEFGĞHIİJKLMNOÖPQRSŞTUÜVWXZY".split("");
+  const alphabet = ["A","B","C","Ç","D","E","F","G","Ğ","H","I","İ","J","K","L","M","N","O","Ö","P","Q","R","S","Ş","T","U","Ü","V","W","X","Y","Z"];
 
     socket.on("connect", () => {
       mySocketId = socket.id;
@@ -573,7 +573,6 @@ wrongSound.play();
       btn.innerText = "Sonraki Tura Geç";
     }
 
-
 function guessLetter(letter, btn) {
   if (wrongCount >= maxWrong || roundFinishedSent) return;
 
@@ -636,14 +635,6 @@ function guessLetter(letter, btn) {
   }
 }
 
-  if (wrongCount >= maxWrong) {
-    stopTurnTimer();
-    document.getElementById("gameStatus").innerText =
-      "Adam asıldı 💀 Kaybettin knk. Kelime: " + currentWord;
-    disableAllLetterButtons();
-    showNextRoundButton();
-  }
-}
 
    socket.on("roomCreated", ({ roomCode, players }) => {
   currentRoomCode = roomCode;
