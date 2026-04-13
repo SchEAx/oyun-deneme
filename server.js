@@ -7,6 +7,9 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static("public"));
+app.get("*", (req, res) => {
+  res.sendFile(__dirname + "/public/index.html");
+});
 
 const rooms = {};
 const TOTAL_ROUNDS = 5;
