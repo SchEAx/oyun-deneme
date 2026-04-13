@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kelime Arenası</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+  body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(59,130,246,0.18), transparent 25%),
+    radial-gradient(circle at top right, rgba(168,85,247,0.18), transparent 25%),
+    radial-gradient(circle at bottom center, rgba(14,165,233,0.12), transparent 30%),
+    #0f172a;
+  color: white;
+  text-align: center;
+  min-height: 100vh;
+}
+    .container {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    .card {
+  background: rgba(17, 24, 39, 0.88);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 24px;
+  padding: 25px;
+  margin-bottom: 20px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.28);
+  backdrop-filter: blur(8px);
+}
+
+    input {
+      padding: 12px;
+      width: 250px;
+      margin: 8px;
+      border-radius: 10px;
+      border: none;
+    }
+
+    button {
+      padding: 12px 18px;
+      margin: 8px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #3b82f6;
+      color: white;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #2563eb;
+    }
+
+    button:disabled {
+      background: #475569;
+      cursor: not-allowed;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .player {
+      background: #1e293b;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 10px;
+      text-align: left;
+    }
+
+    .hostOnly {
+      margin-top: 15px;
+    }
+
+    #letters {
+      margin-top: 20px;
+    }
+
+    #letters button {
+  min-width: 44px;
+  background: linear-gradient(180deg, #475569, #334155);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#letters button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 18px rgba(0,0,0,0.28);
+}
+
+#letters button:disabled {
+  opacity: 0.45;
+  transform: none;
+}
+
+    #wordDisplay {
+  font-size: 30px;
+  margin: 20px;
+  font-weight: bold;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.wordLine {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.letterBox {
+  min-width: 34px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #172554, #1e3a8a);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+
+    #gameStatus {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #93c5fd;
+      min-height: 24px;
+    }
+
+    .roundLayout {
+      display: flex;
+      gap: 30px;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .hangmanBox {
+      background: #0b1220;
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 15px;
+    }
+
+    .wordBox {
+      flex: 1;
+      min-width: 320px;
+    }
+
+    .wrongInfo {
+      font-size: 18px;
+      color: #fca5a5;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    .scoreBox {
+  min-width: 240px;
+  background: linear-gradient(180deg, rgba(15,23,42,0.92), rgba(2,6,23,0.95));
+  border: 1px solid rgba(96,165,250,0.18);
+  border-radius: 16px;
+  padding: 15px;
+  text-align: left;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 10px 30px rgba(0,0,0,0.22);
+}
+
+    .scoreRow {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .scoreRow:last-child {
+      border-bottom: none;
+    }
+
+    canvas {
+      background: #0b1220;
+      border-radius: 10px;
+    }
+
+    .winnerRow {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 12px;
+      background: #1e293b;
+    }
+
+    .roundBadge {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #1e3a8a;
+    }
+#timerBox {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7c3aed, #2563eb);
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 8px 24px rgba(37,99,235,0.28);
+}
+
+.timerDanger {
+  animation: pulseTimer 0.8s infinite;
+  background: linear-gradient(90deg, #dc2626, #ea580c) !important;
+}
+
+@keyframes pulseTimer {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div id="menu" class="card">
+      <h1>Kelime Arenası</h1>
+      <input id="nick" placeholder="Nick gir knk" />
+      <br />
+      <button onclick="createRoom()">Oyunu Başlat</button>
+      <br />
+      <input id="roomCodeInput" placeholder="10 haneli oda kodu" />
+      <br />
+      <button onclick="joinRoom()">Oyuna Katıl</button>
+      <p id="error" style="color:#f87171;"></p>
+    </div>
+
+    <div id="lobby" class="card hidden">
+      <h2>Lobi</h2>
+      <p>Oda Kodu: <b id="roomCodeText"></b></p>
+      <button onclick="toggleReady()">Hazır / Hazır Değil</button>
+
+      <div id="hostControls" class="hostOnly hidden">
+        <button onclick="startGame()">Oyunu Başlat</button>
+      </div>
+
+      <div id="players"></div>
+    </div>
+
+    <div id="wordScreen" class="card hidden">
+      <h2>Kelime ve İpucu Gir</h2>
+      <div class="roundBadge" id="wordRoundInfo">Tur 1 / 5</div>
+      <br />
+      <input id="wordInput" placeholder="Kelime gir" />
+      <br />
+      <input id="hintInput" placeholder="İpucu gir" />
+      <br />
+      <button onclick="submitWord()">Gönder</button>
+      <p id="submitStatus"></p>
+    </div>
+
+    <div id="roundScreen" class="card hidden">
+      <h2>Tur Başladı</h2>
+      <div class="roundBadge" id="roundInfo">Tur 1 / 5</div>
+      <p><b>İpucu:</b> <span id="roundHint"></span></p>
+<div id="timerBox">
+  ⏳ Harf süresi: <span id="turnTimerText">10</span> sn
+</div>
+
+      <div class="roundLayout">
+        <div class="hangmanBox">
+          <canvas id="hangmanCanvas" width="220" height="260"></canvas>
+          <div class="wrongInfo">
+            Kalan yanlış hak: <span id="remainingLives">10</span>
+          </div>
+        </div>
+
+        <div class="wordBox">
+          <div id="wordDisplay"></div>
+          <div id="letters"></div>
+          <p id="gameStatus"></p>
+          <button id="nextRoundBtn" class="hidden" onclick="finishRound()">Sonraki Tura Geç</button>
+        </div>
+
+        <div class="scoreBox">
+          <h3>Skorlar</h3>
+          <div id="scoreboard"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="gameOverScreen" class="card hidden">
+      <h2>Oyun Bitti 🏆</h2>
+      <div id="finalRanking"></div>
+      <button onclick="backToMenu()">Ana Menüye Dön</button>
+    </div>
+
+  </div>
+
+  <script>
+    const socket = io();
+
+    let currentRoomCode = "";
+    let mySocketId = "";
+    let isHost = false;
+
+    let currentWord = "";
+    let currentOwnerId = "";
+    let hiddenWord = [];
+    let wrongCount = 0;
+    let roundFinishedSent = false;
+    const maxWrong = 10;
+let turnTime = 10;
+let turnTimer = null;
+let timerLocked = false;
+
+    const alphabet = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ".split("");
+
+    socket.on("connect", () => {
+      mySocketId = socket.id;
+    });
+
+    function createRoom() {
+      const nick = document.getElementById("nick").value.trim();
+      if (!nick) return;
+      socket.emit("createRoom", { nick });
+    }
+
+   function joinRoom() {
+  const nick = document.getElementById("nick").value.trim();
+  const roomCode = document.getElementById("roomCodeInput").value.trim().toUpperCase();
+
+  console.log("JOIN DENEME:", nick, roomCode);
+
+  if (!nick || !roomCode) {
+    document.getElementById("error").innerText = "Nick ve oda kodu gir knk";
+    return;
+  }
+
+  currentRoomCode = roomCode;
+  socket.emit("joinRoom", { nick, roomCode });
+}
+
+    function toggleReady() {
+      socket.emit("toggleReady", { roomCode: currentRoomCode });
+    }
+
+    function startGame() {
+      socket.emit("startGame", { roomCode: currentRoomCode });
+    }
+
+    function submitWord() {
+      const word = document.getElementById("wordInput").value.trim();
+      const hint = document.getElementById("hintInput").value.trim();
+
+      if (!word || !hint) return;
+
+      socket.emit("submitWord", {
+        roomCode: currentRoomCode,
+        word,
+        hint
+      });
+
+      document.getElementById("submitStatus").innerText = "Kelime gönderildi ✅";
+    }
+
+    function finishRound() {
+  if (roundFinishedSent) return;
+  roundFinishedSent = true;
+  stopTurnTimer();
+  socket.emit("roundFinished", { roomCode: currentRoomCode });
+
+  document.getElementById("nextRoundBtn").disabled = true;
+  document.getElementById("nextRoundBtn").innerText = "Bekleniyor...";
+}
+
+    function backToMenu() {
+      location.reload();
+    }
+
+   function updateWordDisplay() {
+  const words = [];
+  let current = [];
+
+  hiddenWord.forEach(char => {
+    if (char === " ") {
+      words.push(current);
+      current = [];
+    } else {
+      current.push(char);
+    }
+  });
+
+  if (current.length) words.push(current);
+
+  const html = words.map(wordArr => {
+    const letters = wordArr.map(char => `<span class="letterBox">${char}</span>`).join("");
+    return `<div class="wordLine">${letters}</div>`;
+  }).join("");
+
+  document.getElementById("wordDisplay").innerHTML = html;
+}
+
+function updateLivesDisplay() {
+  document.getElementById("remainingLives").innerText = maxWrong - wrongCount;
+}
+
+function updateTimerDisplay() {
+  const timerEl = document.getElementById("turnTimerText");
+  const box = document.getElementById("timerBox");
+  if (!timerEl || !box) return;
+
+  timerEl.innerText = turnTime;
+
+  if (turnTime <= 3) {
+    box.classList.add("timerDanger");
+  } else {
+    box.classList.remove("timerDanger");
+  }
+}
+
+function stopTurnTimer() {
+  if (turnTimer) {
+    clearInterval(turnTimer);
+    turnTimer = null;
+  }
+}
+
+function startTurnTimer() {
+  stopTurnTimer();
+  turnTime = 10;
+  timerLocked = false;
+  updateTimerDisplay();
+
+  turnTimer = setInterval(() => {
+    if (roundFinishedSent) {
+      stopTurnTimer();
+      return;
+    }
+
+    turnTime--;
+    updateTimerDisplay();
+
+    if (turnTime <= 0 && !timerLocked) {
+      timerLocked = true;
+      handleTimerExpired();
+    }
+  }, 1000);
+}
+
+function resetTurnTimer() {
+  turnTime = 10;
+  timerLocked = false;
+  updateTimerDisplay();
+}
+
+function handleTimerExpired() {
+  wrongCount++;
+  updateLivesDisplay();
+  drawHangman();
+
+  document.getElementById("gameStatus").innerText = "Süre bitti ⏰ Yanlış sayıldı knk";
+
+  socket.emit("wrongGuess", {
+    roomCode: currentRoomCode,
+    ownerId: currentOwnerId,
+    guesserId: mySocketId
+  });
+
+  if (wrongCount >= maxWrong) {
+    stopTurnTimer();
+    document.getElementById("gameStatus").innerText =
+      "Adam asıldı 💀 Kaybettin knk. Kelime: " + currentWord;
+    disableAllLetterButtons();
+    showNextRoundButton();
+    return;
+  }
+
+  resetTurnTimer();
+}
+    function disableAllLetterButtons() {
+      const buttons = document.querySelectorAll("#letters button");
+      buttons.forEach(btn => btn.disabled = true);
+    }
+
+    function createLetterButtons() {
+      const container = document.getElementById("letters");
+      container.innerHTML = "";
+
+      alphabet.forEach(letter => {
+        const btn = document.createElement("button");
+        btn.innerText = letter;
+        btn.onclick = () => guessLetter(letter, btn);
+        container.appendChild(btn);
+      });
+    }
+
+    function drawHangman() {
+      const canvas = document.getElementById("hangmanCanvas");
+      const ctx = canvas.getContext("2d");
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#e5e7eb";
+      ctx.lineWidth = 4;
+
+      if (wrongCount >= 1) { ctx.beginPath(); ctx.moveTo(20, 240); ctx.lineTo(120, 240); ctx.stroke(); }
+      if (wrongCount >= 2) { ctx.beginPath(); ctx.moveTo(60, 240); ctx.lineTo(60, 20); ctx.stroke(); }
+      if (wrongCount >= 3) { ctx.beginPath(); ctx.moveTo(60, 20); ctx.lineTo(150, 20); ctx.stroke(); }
+      if (wrongCount >= 4) { ctx.beginPath(); ctx.moveTo(150, 20); ctx.lineTo(150, 50); ctx.stroke(); }
+      if (wrongCount >= 5) { ctx.beginPath(); ctx.arc(150, 70, 20, 0, Math.PI * 2); ctx.stroke(); }
+      if (wrongCount >= 6) { ctx.beginPath(); ctx.moveTo(150, 90); ctx.lineTo(150, 145); ctx.stroke(); }
+      if (wrongCount >= 7) { ctx.beginPath(); ctx.moveTo(150, 105); ctx.lineTo(125, 125); ctx.stroke(); }
+      if (wrongCount >= 8) { ctx.beginPath(); ctx.moveTo(150, 105); ctx.lineTo(175, 125); ctx.stroke(); }
+      if (wrongCount >= 9) { ctx.beginPath(); ctx.moveTo(150, 145); ctx.lineTo(128, 185); ctx.stroke(); }
+      if (wrongCount >= 10) { ctx.beginPath(); ctx.moveTo(150, 145); ctx.lineTo(172, 185); ctx.stroke(); }
+    }
+
+    function renderScoreboard(players) {
+      const box = document.getElementById("scoreboard");
+      if (!box) return;
+
+      box.innerHTML = "";
+      [...players]
+        .sort((a, b) => b.score - a.score)
+        .forEach(p => {
+          const row = document.createElement("div");
+          row.className = "scoreRow";
+          row.innerHTML = `<span>${p.nick}</span><strong>${p.score}</strong>`;
+          box.appendChild(row);
+        });
+    }
+
+    function renderFinalRanking(players) {
+      const box = document.getElementById("finalRanking");
+      box.innerHTML = "";
+
+      players.forEach((p, i) => {
+        const row = document.createElement("div");
+        row.className = "winnerRow";
+        row.innerHTML = `<span>#${i + 1} ${p.nick}</span><strong>${p.score}</strong>`;
+        box.appendChild(row);
+      });
+    }
+
+    function showNextRoundButton() {
+      const btn = document.getElementById("nextRoundBtn");
+      btn.classList.remove("hidden");
+      btn.disabled = false;
+      btn.innerText = "Sonraki Tura Geç";
+    }
+
+    function guessLetter(letter, btn) {
+  if (wrongCount >= maxWrong || roundFinishedSent) return;
+
+  btn.disabled = true;
+  resetTurnTimer();
+
+  let found = false;
+
+  for (let i = 0; i < currentWord.length; i++) {
+    if (currentWord[i] === letter.toLocaleUpperCase("tr-TR")) {
+      hiddenWord[i] = letter;
+      found = true;
+    }
+  }
+
+  if (found) {
+    document.getElementById("gameStatus").innerText = "Doğru harf 🔥";
+  } else {
+    wrongCount++;
+    updateLivesDisplay();
+    drawHangman();
+    document.getElementById("gameStatus").innerText = "Yanlış harf 😅";
+
+    socket.emit("wrongGuess", {
+      roomCode: currentRoomCode,
+      ownerId: currentOwnerId,
+      guesserId: mySocketId
+    });
+  }
+
+  updateWordDisplay();
+
+  if (hiddenWord.join("") === currentWord) {
+    stopTurnTimer();
+    document.getElementById("gameStatus").innerText = "Kelimeyi bildin 🎉";
+    disableAllLetterButtons();
+
+    socket.emit("wordSolved", {
+      roomCode: currentRoomCode,
+      ownerId: currentOwnerId,
+      guesserId: mySocketId
+    });
+
+    showNextRoundButton();
+    return;
+  }
+
+  if (wrongCount >= maxWrong) {
+    stopTurnTimer();
+    document.getElementById("gameStatus").innerText =
+      "Adam asıldı 💀 Kaybettin knk. Kelime: " + currentWord;
+    disableAllLetterButtons();
+    showNextRoundButton();
+  }
+}
+
+    socket.on("roomCreated", ({ roomCode, players }) => {
+      currentRoomCode = roomCode;
+      document.getElementById("menu").classList.add("hidden");
+      document.getElementById("lobby").classList.remove("hidden");
+      document.getElementById("roomCodeText").innerText = roomCode;
+      renderPlayers(players);
+    });
+
+    socket.on("roomUpdated", (players) => {
+      document.getElementById("menu").classList.add("hidden");
+      document.getElementById("lobby").classList.remove("hidden");
+      renderPlayers(players);
+    });
+
+    socket.on("showWordScreen", ({ round, totalRounds }) => {
+      document.getElementById("lobby").classList.add("hidden");
+      document.getElementById("roundScreen").classList.add("hidden");
+      document.getElementById("gameOverScreen").classList.add("hidden");
+      document.getElementById("wordScreen").classList.remove("hidden");
+
+      document.getElementById("submitStatus").innerText = "";
+      document.getElementById("wordInput").value = "";
+      document.getElementById("hintInput").value = "";
+      document.getElementById("wordRoundInfo").innerText = `Tur ${round} / ${totalRounds}`;
+    });
+
+    socket.on("submissionUpdate", ({ submittedCount, totalPlayers }) => {
+      document.getElementById("submitStatus").innerText =
+        `Gönderilen kelime sayısı: ${submittedCount}/${totalPlayers}`;
+    });
+
+    socket.on("startRound", ({ word, hint, ownerId, players, round, totalRounds }) => {
+      document.getElementById("wordScreen").classList.add("hidden");
+      document.getElementById("roundScreen").classList.remove("hidden");
+      document.getElementById("gameOverScreen").classList.add("hidden");
+
+      document.getElementById("roundHint").innerText = hint;
+      document.getElementById("roundInfo").innerText = `Tur ${round} / ${totalRounds}`;
+
+      currentWord = word.toLocaleUpperCase("tr-TR");
+currentOwnerId = ownerId;
+
+hiddenWord = currentWord.split("").map(char => {
+  if (char === " ") return " ";
+  return "_";
+});
+
+wrongCount = 0;
+roundFinishedSent = false;
+
+      updateWordDisplay();
+      updateLivesDisplay();
+      createLetterButtons();
+      drawHangman();
+      renderScoreboard(players);
+
+      document.getElementById("gameStatus").innerText = "Harf seç knk 😎";
+      document.getElementById("nextRoundBtn").classList.add("hidden");
+      document.getElementById("nextRoundBtn").disabled = false;
+      document.getElementById("nextRoundBtn").innerText = "Sonraki Tura Geç";
+startTurnTimer();
+    });
+
+
+    socket.on("scoresUpdated", (players) => {
+      renderScoreboard(players);
+    });
+
+    socket.on("gameFinished", ({ players }) => {
+      document.getElementById("wordScreen").classList.add("hidden");
+      document.getElementById("roundScreen").classList.add("hidden");
+      document.getElementById("lobby").classList.add("hidden");
+      document.getElementById("gameOverScreen").classList.remove("hidden");
+      renderFinalRanking(players);
+    });
+
+    socket.on("errorMessage", (msg) => {
+      document.getElementById("error").innerText = msg;
+    });
+
+    function renderPlayers(players) {
+      const box = document.getElementById("players");
+      box.innerHTML = "";
+
+      isHost = false;
+
+      players.forEach((p) => {
+        if (p.id === mySocketId && p.host) isHost = true;
+
+        const div = document.createElement("div");
+        div.className = "player";
+        div.innerHTML = `
+          <b>${p.nick}</b>
+          ${p.host ? "👑 Host" : ""}
+          <br>
+          Durum: ${p.ready ? "✅ Hazır" : "❌ Hazır Değil"}
+          <br>
+          Puan: ${p.score ?? 0}
+        `;
+        box.appendChild(div);
+      });
+
+      document.getElementById("hostControls").classList.toggle("hidden", !isHost);
+    }
+  </script>
+</body>
+</html>
