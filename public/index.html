@@ -326,7 +326,7 @@ let turnTime = 10;
 let turnTimer = null;
 let timerLocked = false;
 
-    const alphabet = "ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ".split("");
+   const alphabet = "ABCÇDEFGĞHIİJKLMNOÖPQRSŞTUÜVWXZY".split("");
 
     socket.on("connect", () => {
       mySocketId = socket.id;
@@ -357,9 +357,15 @@ let timerLocked = false;
       socket.emit("toggleReady", { roomCode: currentRoomCode });
     }
 
-    function startGame() {
-      socket.emit("startGame", { roomCode: currentRoomCode });
-    }
+   function startGame() {
+  if (!currentRoomCode) {
+    document.getElementById("error").innerText = "Önce oda oluştur knk";
+    return;
+  }
+
+  document.getElementById("error").innerText = "";
+  socket.emit("startGame", { roomCode: currentRoomCode });
+}
 
     function submitWord() {
       const word = document.getElementById("wordInput").value.trim();
@@ -639,13 +645,17 @@ function guessLetter(letter, btn) {
   }
 }
 
-    socket.on("roomCreated", ({ roomCode, players }) => {
-      currentRoomCode = roomCode;
-      document.getElementById("menu").classList.add("hidden");
-      document.getElementById("lobby").classList.remove("hidden");
-      document.getElementById("roomCodeText").innerText = roomCode;
-      renderPlayers(players);
-    });
+   socket.on("roomCreated", ({ roomCode, players }) => {
+  currentRoomCode = roomCode;
+  isHost = true;
+
+  document.getElementById("menu").classList.add("hidden");
+  document.getElementById("lobby").classList.remove("hidden");
+  document.getElementById("roomCodeText").innerText = roomCode;
+  document.getElementById("hostControls").classList.remove("hidden");
+
+  renderPlayers(players);
+});
 
     socket.on("roomUpdated", (players) => {
       document.getElementById("menu").classList.add("hidden");
@@ -719,30 +729,29 @@ startTurnTimer();
       document.getElementById("error").innerText = msg;
     });
 
-    function renderPlayers(players) {
-      const box = document.getElementById("players");
-      box.innerHTML = "";
+   function renderPlayers(players) {
+  const box = document.getElementById("players");
+  box.innerHTML = "";
 
-      isHost = false;
+  const me = players.find((p) => p.id === mySocketId);
+  isHost = !!(me && me.host);
 
-      players.forEach((p) => {
-        if (p.id === mySocketId && p.host) isHost = true;
+  players.forEach((p) => {
+    const div = document.createElement("div");
+    div.className = "player";
+    div.innerHTML = `
+      <b>${p.nick}</b>
+      ${p.host ? "👑 Host" : ""}
+      <br>
+      Durum: ${p.ready ? "✅ Hazır" : "❌ Hazır Değil"}
+      <br>
+      Puan: ${p.score ?? 0}
+    `;
+    box.appendChild(div);
+  });
 
-        const div = document.createElement("div");
-        div.className = "player";
-        div.innerHTML = `
-          <b>${p.nick}</b>
-          ${p.host ? "👑 Host" : ""}
-          <br>
-          Durum: ${p.ready ? "✅ Hazır" : "❌ Hazır Değil"}
-          <br>
-          Puan: ${p.score ?? 0}
-        `;
-        box.appendChild(div);
-      });
-
-      document.getElementById("hostControls").classList.toggle("hidden", !isHost);
-    }
+  document.getElementById("hostControls").classList.toggle("hidden", !isHost);
+}
    document.addEventListener("click", () => {
   correctSound.play().then(() => {
     correctSound.pause();
