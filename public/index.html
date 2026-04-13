@@ -307,8 +307,11 @@
   <script>
     const socket = io();
 const correctSound = new Audio("/correct.mp3");
+correctSound.volume = 0.5;
 const wrongSound = new Audio("/wrong.mp3");
+wrongSound.volume = 0.5;
 const tickSound = new Audio("/tick.mp3");
+    tickSound.volume = 0.2;
     let currentRoomCode = "";
     let mySocketId = "";
     let isHost = false;
@@ -423,13 +426,14 @@ function updateTimerDisplay() {
 
   if (turnTime <= 3) {
     box.classList.add("timerDanger");
-  } 
-  tickSound.currentTime = 0;
-tickSound.play();
-  else {
+    tickSound.currentTime = 0;
+    tickSound.play().catch(() => {});
+  } else {
     box.classList.remove("timerDanger");
   }
 }
+
+  
 
 function stopTurnTimer() {
   if (turnTimer) {
@@ -563,7 +567,8 @@ wrongSound.play();
       btn.innerText = "Sonraki Tura Geç";
     }
 
-    function guessLetter(letter, btn) {
+
+function guessLetter(letter, btn) {
   if (wrongCount >= maxWrong || roundFinishedSent) return;
 
   btn.disabled = true;
@@ -580,15 +585,16 @@ wrongSound.play();
 
   if (found) {
     document.getElementById("gameStatus").innerText = "Doğru harf 🔥";
-  } 
-  correctSound.currentTime = 0;
-correctSound.play();
-      else {
+    correctSound.currentTime = 0;
+    correctSound.play().catch(() => {});
+  } else {
     wrongCount++;
     updateLivesDisplay();
     drawHangman();
-        wrongSound.currentTime = 0;
-wrongSound.play();
+
+    wrongSound.currentTime = 0;
+    wrongSound.play().catch(() => {});
+
     document.getElementById("gameStatus").innerText = "Yanlış harf 😅";
 
     socket.emit("wrongGuess", {
@@ -614,6 +620,15 @@ wrongSound.play();
     showNextRoundButton();
     return;
   }
+
+  if (wrongCount >= maxWrong) {
+    stopTurnTimer();
+    document.getElementById("gameStatus").innerText =
+      "Adam asıldı 💀 Kaybettin knk. Kelime: " + currentWord;
+    disableAllLetterButtons();
+    showNextRoundButton();
+  }
+}
 
   if (wrongCount >= maxWrong) {
     stopTurnTimer();
@@ -728,10 +743,21 @@ startTurnTimer();
 
       document.getElementById("hostControls").classList.toggle("hidden", !isHost);
     }
-    document.addEventListener("click", () => {
-  correctSound.play().catch(() => {});
-  wrongSound.play().catch(() => {});
-  tickSound.play().catch(() => {});
+   document.addEventListener("click", () => {
+  correctSound.play().then(() => {
+    correctSound.pause();
+    correctSound.currentTime = 0;
+  }).catch(() => {});
+
+  wrongSound.play().then(() => {
+    wrongSound.pause();
+    wrongSound.currentTime = 0;
+  }).catch(() => {});
+
+  tickSound.play().then(() => {
+    tickSound.pause();
+    tickSound.currentTime = 0;
+  }).catch(() => {});
 }, { once: true });
   </script>
 </body>
