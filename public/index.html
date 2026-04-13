@@ -306,7 +306,9 @@
 
   <script>
     const socket = io();
-
+const correctSound = new Audio("/correct.mp3");
+const wrongSound = new Audio("/wrong.mp3");
+const tickSound = new Audio("/tick.mp3");
     let currentRoomCode = "";
     let mySocketId = "";
     let isHost = false;
@@ -421,7 +423,10 @@ function updateTimerDisplay() {
 
   if (turnTime <= 3) {
     box.classList.add("timerDanger");
-  } else {
+  } 
+  tickSound.currentTime = 0;
+tickSound.play();
+  else {
     box.classList.remove("timerDanger");
   }
 }
@@ -463,6 +468,8 @@ function resetTurnTimer() {
 
 function handleTimerExpired() {
   wrongCount++;
+  wrongSound.currentTime = 0;
+wrongSound.play();
   updateLivesDisplay();
   drawHangman();
 
@@ -573,10 +580,15 @@ function handleTimerExpired() {
 
   if (found) {
     document.getElementById("gameStatus").innerText = "Doğru harf 🔥";
-  } else {
+  } 
+  correctSound.currentTime = 0;
+correctSound.play();
+      else {
     wrongCount++;
     updateLivesDisplay();
     drawHangman();
+        wrongSound.currentTime = 0;
+wrongSound.play();
     document.getElementById("gameStatus").innerText = "Yanlış harf 😅";
 
     socket.emit("wrongGuess", {
@@ -716,6 +728,11 @@ startTurnTimer();
 
       document.getElementById("hostControls").classList.toggle("hidden", !isHost);
     }
+    document.addEventListener("click", () => {
+  correctSound.play().catch(() => {});
+  wrongSound.play().catch(() => {});
+  tickSound.play().catch(() => {});
+}, { once: true });
   </script>
 </body>
 </html>
