@@ -434,20 +434,27 @@ function joinRoom(roomCodeFromCard = null) {
   socket.emit("startGame", { roomCode: currentRoomCode });
 }
 
-    function submitWord() {
-      const word = document.getElementById("wordInput").value.trim();
-      const hint = document.getElementById("hintInput").value.trim();
+function submitWord() {
+  const word = document.getElementById("wordInput").value.trim();
+  const hint = document.getElementById("hintInput").value.trim();
 
-      if (!word || !hint) return;
+  if (!word || !hint) return;
 
-      socket.emit("submitWord", {
-        roomCode: currentRoomCode,
-        word,
-        hint
-      });
+  console.log("submitWord gönderiliyor:", {
+    currentRoomCode,
+    word,
+    hint,
+    mySocketId
+  });
 
-      document.getElementById("submitStatus").innerText = "Kelime gönderildi ✅";
-    }
+  socket.emit("submitWord", {
+    roomCode: currentRoomCode,
+    word,
+    hint
+  });
+
+  document.getElementById("submitStatus").innerText = "Kelime gönderildi ✅ Diğer oyuncular bekleniyor...";
+}
 
     function finishRound() {
   if (roundFinishedSent) return;
@@ -775,16 +782,17 @@ socket.on("roomUpdated", (players) => {
       document.getElementById("gameOverScreen").classList.add("hidden");
       document.getElementById("wordScreen").classList.remove("hidden");
 
-      document.getElementById("submitStatus").innerText = "";
+      document.getElementById("submitStatus").innerText = "Henüz gönderim yapılmadı";
       document.getElementById("wordInput").value = "";
       document.getElementById("hintInput").value = "";
       document.getElementById("wordRoundInfo").innerText = `Tur ${round} / ${totalRounds}`;
     });
 
-    socket.on("submissionUpdate", ({ submittedCount, totalPlayers }) => {
-      document.getElementById("submitStatus").innerText =
-        `Gönderilen kelime sayısı: ${submittedCount}/${totalPlayers}`;
-    });
+   socket.on("submissionUpdate", ({ submittedCount, totalPlayers }) => {
+  console.log("submissionUpdate geldi:", submittedCount, totalPlayers);
+  document.getElementById("submitStatus").innerText =
+    `Gönderilen kelime sayısı: ${submittedCount}/${totalPlayers}`;
+});
 
     socket.on("startRound", ({ word, hint, ownerId, players, round, totalRounds }) => {
       document.getElementById("wordScreen").classList.add("hidden");
