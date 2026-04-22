@@ -14,6 +14,7 @@ app.get("/{*any}", (req, res) => {
 
 const rooms = {};
 const TOTAL_ROUNDS = 5;
+const MAX_PLAYERS = 5;
 
 function randomRoomCode() {
   let code = "";
@@ -70,6 +71,21 @@ function assignWords(players, submissions) {
   return assignments;
 }
 
+function getOpenRooms() {
+  return Object.entries(rooms)
+    .filter(([_, room]) => !room.gameStarted && room.players.length < MAX_PLAYERS)
+    .map(([roomCode, room]) => ({
+      roomCode,
+      hostNick: room.players.find((p) => p.host)?.nick || "Bilinmiyor",
+      playerCount: room.players.length,
+      maxPlayers: MAX_PLAYERS
+    }));
+}
+
+function broadcastOpenRooms() {
+  io.emit("openRooms", getOpenRooms());
+}
+
 function startRoundForRoom(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
@@ -101,13 +117,23 @@ function finishGame(roomCode) {
   room.currentRound = 1;
   room.roundFinishedCount = 0;
   room.submissions = {};
+  room.pendingRequests = [];
+
   room.players = room.players.map((p) => ({
     ...p,
     ready: false
   }));
+
+  broadcastOpenRooms();
 }
 
 io.on("connection", (socket) => {
+  socket.emit("openRooms", getOpenRooms());
+
+  socket.on("getOpenRooms", () => {
+    socket.emit("openRooms", getOpenRooms());
+  });
+
   socket.on("createRoom", ({ nick }) => {
     let roomCode;
     do {
@@ -119,7 +145,8 @@ io.on("connection", (socket) => {
       gameStarted: false,
       submissions: {},
       currentRound: 1,
-      roundFinishedCount: 0
+      roundFinishedCount: 0,
+      pendingRequests: []
     };
 
     socket.join(roomCode);
@@ -127,36 +154,113 @@ io.on("connection", (socket) => {
       roomCode,
       players: rooms[roomCode].players
     });
+
+    broadcastOpenRooms();
   });
 
-  socket.on("joinRoom", ({ roomCode, nick }) => {
+  socket.on("requestJoinRoom", ({ roomCode, nick }) => {
     const room = rooms[roomCode];
 
     if (!room) {
-      socket.emit("errorMessage", "Oda bulunamadı");
-      return;
-    }
-
-    if (room.players.length >= 5) {
-      socket.emit("errorMessage", "Oda dolu");
+      socket.emit("joinRejected", { message: "Oda bulunamadı" });
       return;
     }
 
     if (room.gameStarted) {
-      socket.emit("errorMessage", "Oyun başlamış knk");
+      socket.emit("joinRejected", { message: "Oyun başlamış knk" });
       return;
     }
 
+    if (room.players.length >= MAX_PLAYERS) {
+      socket.emit("joinRejected", { message: "Oda dolu" });
+      return;
+    }
+
+    const alreadyPlayer = room.players.some((p) => p.id === socket.id);
+    if (alreadyPlayer) {
+      socket.emit("joinRejected", { message: "Zaten odadasın knk" });
+      return;
+    }
+
+    const alreadyPending = room.pendingRequests.some((r) => r.socketId === socket.id);
+    if (alreadyPending) {
+      socket.emit("joinRejected", { message: "Zaten katılma talebi gönderdin" });
+      return;
+    }
+
+    room.pendingRequests.push({
+      socketId: socket.id,
+      nick
+    });
+
+    const host = room.players.find((p) => p.host);
+    if (host) {
+      io.to(host.id).emit("joinRequestReceived", {
+        roomCode,
+        socketId: socket.id,
+        nick
+      });
+    }
+
+    socket.emit("joinRequestSent", {
+      roomCode,
+      message: "Katılma talebin gönderildi"
+    });
+  });
+
+  socket.on("acceptJoinRequest", ({ roomCode, socketId }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+
+    const host = room.players.find((p) => p.id === socket.id && p.host);
+    if (!host) return;
+
+    const requestIndex = room.pendingRequests.findIndex((r) => r.socketId === socketId);
+    if (requestIndex === -1) return;
+
+    if (room.players.length >= MAX_PLAYERS) {
+      io.to(socketId).emit("joinRejected", { message: "Oda doldu knk" });
+      room.pendingRequests.splice(requestIndex, 1);
+      return;
+    }
+
+    const request = room.pendingRequests[requestIndex];
+    room.pendingRequests.splice(requestIndex, 1);
+
     room.players.push({
-      id: socket.id,
-      nick,
+      id: request.socketId,
+      nick: request.nick,
       ready: false,
       host: false,
       score: 0
     });
 
-    socket.join(roomCode);
+    io.sockets.sockets.get(request.socketId)?.join(roomCode);
+
+    io.to(request.socketId).emit("joinAccepted", {
+      roomCode,
+      players: room.players
+    });
+
     io.to(roomCode).emit("roomUpdated", room.players);
+    broadcastOpenRooms();
+  });
+
+  socket.on("rejectJoinRequest", ({ roomCode, socketId }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+
+    const host = room.players.find((p) => p.id === socket.id && p.host);
+    if (!host) return;
+
+    const requestIndex = room.pendingRequests.findIndex((r) => r.socketId === socketId);
+    if (requestIndex === -1) return;
+
+    room.pendingRequests.splice(requestIndex, 1);
+
+    io.to(socketId).emit("joinRejected", {
+      message: "Katılma talebiniz reddedildi"
+    });
   });
 
   socket.on("toggleReady", ({ roomCode }) => {
@@ -187,11 +291,14 @@ io.on("connection", (socket) => {
     room.currentRound = 1;
     room.roundFinishedCount = 0;
     room.submissions = {};
+    room.pendingRequests = [];
 
     io.to(roomCode).emit("showWordScreen", {
       round: room.currentRound,
       totalRounds: TOTAL_ROUNDS
     });
+
+    broadcastOpenRooms();
   });
 
   socket.on("submitWord", ({ roomCode, word, hint }) => {
@@ -277,6 +384,7 @@ io.on("connection", (socket) => {
       const before = room.players.length;
 
       room.players = room.players.filter((p) => p.id !== socket.id);
+      room.pendingRequests = room.pendingRequests.filter((r) => r.socketId !== socket.id);
       delete room.submissions[socket.id];
 
       if (room.players.length !== before) {
@@ -288,6 +396,7 @@ io.on("connection", (socket) => {
           }
           io.to(roomCode).emit("roomUpdated", room.players);
         }
+        broadcastOpenRooms();
         break;
       }
     }
