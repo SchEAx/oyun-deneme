@@ -302,7 +302,7 @@
 <div id="requestStatus" style="margin-top:12px; color:#93c5fd;"></div>
     </div>
 
-   <div id="lobby" class="card hidden">
+ <div id="lobby" class="card hidden">
   <h2>Lobi</h2>
   <p>Oda Kodu: <b id="roomCodeText"></b></p>
   <button onclick="toggleReady()">Hazır / Hazır Değil</button>
@@ -424,13 +424,17 @@ function joinRoom(roomCodeFromCard = null) {
       socket.emit("toggleReady", { roomCode: currentRoomCode });
     }
 
-   function startGame() {
+function startGame() {
   if (!currentRoomCode) {
     document.getElementById("error").innerText = "Önce oda oluştur knk";
     return;
   }
 
   document.getElementById("error").innerText = "";
+  window.pendingJoinRequests = [];
+  renderJoinRequests([]);
+  document.getElementById("joinRequestsBox").classList.add("hidden");
+
   socket.emit("startGame", { roomCode: currentRoomCode });
 }
 
@@ -575,14 +579,19 @@ wrongSound.play();
     guesserId: mySocketId
   });
 
-  if (wrongCount >= maxWrong) {
-    stopTurnTimer();
-    document.getElementById("gameStatus").innerText =
-      "Adam asıldı 💀 Kaybettin knk. Kelime: " + currentWord;
-    disableAllLetterButtons();
-    showNextRoundButton();
-    return;
-  }
+if (wrongCount >= maxWrong) {
+  stopTurnTimer();
+  document.getElementById("gameStatus").innerText =
+    "Adam asıldı 💀 Kaybettin knk. Kelime: " + currentWord;
+  disableAllLetterButtons();
+  showNextRoundButton();
+
+  setTimeout(() => {
+    finishRound();
+  }, 1200);
+
+  return;
+}
 
   resetTurnTimer();
 }
@@ -696,27 +705,35 @@ function guessLetter(letter, btn) {
   updateWordDisplay();
 
   if (hiddenWord.join("") === currentWord) {
-    stopTurnTimer();
-    document.getElementById("gameStatus").innerText = "Kelimeyi bildin 🎉";
-    disableAllLetterButtons();
+  stopTurnTimer();
+  document.getElementById("gameStatus").innerText = "Kelimeyi bildin 🎉";
+  disableAllLetterButtons();
 
-    socket.emit("wordSolved", {
-      roomCode: currentRoomCode,
-      ownerId: currentOwnerId,
-      guesserId: mySocketId
-    });
+  socket.emit("wordSolved", {
+    roomCode: currentRoomCode,
+    ownerId: currentOwnerId,
+    guesserId: mySocketId
+  });
 
-    showNextRoundButton();
-    return;
-  }
+  showNextRoundButton();
+  setTimeout(() => {
+    finishRound();
+  }, 1200);
 
-  if (wrongCount >= maxWrong) {
-    stopTurnTimer();
-    document.getElementById("gameStatus").innerText =
-      "Adam asıldı 💀 Kaybettin knk. Kelime: " + currentWord;
-    disableAllLetterButtons();
-    showNextRoundButton();
-  }
+  return;
+}
+
+if (wrongCount >= maxWrong) {
+  stopTurnTimer();
+  document.getElementById("gameStatus").innerText =
+    "Adam asıldı 💀 Kaybettin knk. Kelime: " + currentWord;
+  disableAllLetterButtons();
+  showNextRoundButton();
+
+  setTimeout(() => {
+    finishRound();
+  }, 1200);
+}
 }
 
 
@@ -776,17 +793,18 @@ socket.on("roomUpdated", (players) => {
 });
     
 
-    socket.on("showWordScreen", ({ round, totalRounds }) => {
-      document.getElementById("lobby").classList.add("hidden");
-      document.getElementById("roundScreen").classList.add("hidden");
-      document.getElementById("gameOverScreen").classList.add("hidden");
-      document.getElementById("wordScreen").classList.remove("hidden");
+  socket.on("showWordScreen", ({ round, totalRounds }) => {
+  document.getElementById("lobby").classList.add("hidden");
+  document.getElementById("roundScreen").classList.add("hidden");
+  document.getElementById("gameOverScreen").classList.add("hidden");
+  document.getElementById("wordScreen").classList.remove("hidden");
+  document.getElementById("joinRequestsBox").classList.add("hidden");
 
-      document.getElementById("submitStatus").innerText = "Henüz gönderim yapılmadı";
-      document.getElementById("wordInput").value = "";
-      document.getElementById("hintInput").value = "";
-      document.getElementById("wordRoundInfo").innerText = `Tur ${round} / ${totalRounds}`;
-    });
+  document.getElementById("submitStatus").innerText = "Henüz gönderim yapılmadı";
+  document.getElementById("wordInput").value = "";
+  document.getElementById("hintInput").value = "";
+  document.getElementById("wordRoundInfo").innerText = `Tur ${round} / ${totalRounds}`;
+});
 
    socket.on("submissionUpdate", ({ submittedCount, totalPlayers }) => {
   console.log("submissionUpdate geldi:", submittedCount, totalPlayers);
@@ -798,6 +816,7 @@ socket.on("roomUpdated", (players) => {
       document.getElementById("wordScreen").classList.add("hidden");
       document.getElementById("roundScreen").classList.remove("hidden");
       document.getElementById("gameOverScreen").classList.add("hidden");
+      document.getElementById("joinRequestsBox").classList.add("hidden");
 
       document.getElementById("roundHint").innerText = hint;
       document.getElementById("roundInfo").innerText = `Tur ${round} / ${totalRounds}`;
@@ -831,13 +850,14 @@ startTurnTimer();
       renderScoreboard(players);
     });
 
-    socket.on("gameFinished", ({ players }) => {
-      document.getElementById("wordScreen").classList.add("hidden");
-      document.getElementById("roundScreen").classList.add("hidden");
-      document.getElementById("lobby").classList.add("hidden");
-      document.getElementById("gameOverScreen").classList.remove("hidden");
-      renderFinalRanking(players);
-    });
+ socket.on("gameFinished", ({ players }) => {
+  document.getElementById("wordScreen").classList.add("hidden");
+  document.getElementById("roundScreen").classList.add("hidden");
+  document.getElementById("lobby").classList.add("hidden");
+  document.getElementById("joinRequestsBox").classList.add("hidden");
+  document.getElementById("gameOverScreen").classList.remove("hidden");
+  renderFinalRanking(players);
+});
 
     socket.on("errorMessage", (msg) => {
       document.getElementById("error").innerText = msg;
