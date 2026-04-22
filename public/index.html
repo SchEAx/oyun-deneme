@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <title>Kelime Arenası</title>
+  <meta name="theme-color" content="#0f172a" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="manifest" href="/manifest.json" />
+<link rel="apple-touch-icon" href="/icon-192.png" />
   <script src="/socket.io/socket.io.js"></script>
   <style>
   body {
@@ -944,6 +948,13 @@ function rejectJoinRequest(socketId) {
     tickSound.currentTime = 0;
   }).catch(() => {});
 }, { once: true });
+    if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js")
+      .then(() => console.log("Service Worker kayıt edildi"))
+      .catch((err) => console.log("Service Worker hata:", err));
+  });
+}
   </script>
 </body>
 </html>
