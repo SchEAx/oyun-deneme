@@ -85,15 +85,26 @@ function getOpenRooms() {
 function broadcastOpenRooms() {
   io.emit("openRooms", getOpenRooms());
 }
-
 function startRoundForRoom(roomCode) {
   const room = rooms[roomCode];
-  if (!room) return;
+  if (!room) {
+    console.log("startRoundForRoom iptal: oda yok", roomCode);
+    return;
+  }
 
   const submittedCount = Object.keys(room.submissions).length;
+
+  console.log("startRoundForRoom kontrol:", {
+    roomCode,
+    submittedCount,
+    totalPlayers: room.players.length
+  });
+
   if (submittedCount !== room.players.length) return;
 
   const assignments = assignWords(room.players, room.submissions);
+
+  console.log("startRoundForRoom assignments:", assignments);
 
   room.players.forEach((p) => {
     io.to(p.id).emit("startRound", {
@@ -301,31 +312,54 @@ io.on("connection", (socket) => {
     broadcastOpenRooms();
   });
 
-  socket.on("submitWord", ({ roomCode, word, hint }) => {
-    const room = rooms[roomCode];
-    if (!room) return;
+socket.on("submitWord", ({ roomCode, word, hint }) => {
+  const room = rooms[roomCode];
 
-    const player = room.players.find((p) => p.id === socket.id);
-    if (!player) return;
-
-    room.submissions[socket.id] = {
-      nick: player.nick,
-      word,
-      hint
-    };
-
-    const submittedCount = Object.keys(room.submissions).length;
-
-    io.to(roomCode).emit("submissionUpdate", {
-      submittedCount,
-      totalPlayers: room.players.length
-    });
-
-    if (submittedCount === room.players.length) {
-      startRoundForRoom(roomCode);
-    }
+  console.log("submitWord geldi:", {
+    roomCode,
+    socketId: socket.id,
+    word,
+    hint,
+    roomExists: !!room
   });
 
+  if (!room) {
+    console.log("submitWord iptal: oda yok");
+    return;
+  }
+
+  const player = room.players.find((p) => p.id === socket.id);
+
+  if (!player) {
+    console.log("submitWord iptal: oyuncu odada değil", socket.id);
+    return;
+  }
+
+  room.submissions[socket.id] = {
+    nick: player.nick,
+    word,
+    hint
+  };
+
+  const submittedCount = Object.keys(room.submissions).length;
+
+  console.log("submission durumu:", {
+    roomCode,
+    submittedCount,
+    totalPlayers: room.players.length,
+    players: room.players.map(p => ({ id: p.id, nick: p.nick }))
+  });
+
+  io.to(roomCode).emit("submissionUpdate", {
+    submittedCount,
+    totalPlayers: room.players.length
+  });
+
+  if (submittedCount === room.players.length) {
+    console.log("Tüm oyuncular gönderdi, tur başlıyor:", roomCode);
+    startRoundForRoom(roomCode);
+  }
+});
   socket.on("wrongGuess", ({ roomCode, ownerId, guesserId }) => {
     const room = rooms[roomCode];
     if (!room) return;
