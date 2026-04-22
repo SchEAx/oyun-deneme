@@ -225,6 +225,56 @@
   50% { transform: scale(1.04); }
   100% { transform: scale(1); }
 }
+    .roomCard {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 10px 0;
+  text-align: left;
+}
+
+.roomCardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.smallBtn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.acceptBtn {
+  background: #16a34a;
+}
+
+.acceptBtn:hover {
+  background: #15803d;
+}
+
+.rejectBtn {
+  background: #dc2626;
+}
+
+.rejectBtn:hover {
+  background: #b91c1c;
+}
+
+.requestRow {
+  background: rgba(30, 41, 59, 0.9);
+  border-radius: 14px;
+  padding: 12px;
+  margin: 8px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
   </style>
 </head>
 <body>
@@ -240,6 +290,12 @@
       <br />
       <button onclick="joinRoom()">Oyuna Katıl</button>
       <p id="error" style="color:#f87171;"></p>
+      <hr style="border-color: rgba(255,255,255,0.08); margin: 24px 0;" />
+
+<h3>Açık Odalar</h3>
+<div id="openRoomsList"></div>
+
+<div id="requestStatus" style="margin-top:12px; color:#93c5fd;"></div>
     </div>
 
     <div id="lobby" class="card hidden">
@@ -253,7 +309,10 @@
 
       <div id="players"></div>
     </div>
-
+<div id="joinRequestsBox" class="hostOnly hidden">
+  <h3>Katılma Talepleri</h3>
+  <div id="joinRequests"></div>
+</div>
     <div id="wordScreen" class="card hidden">
       <h2>Kelime ve İpucu Gir</h2>
       <div class="roundBadge" id="wordRoundInfo">Tur 1 / 5</div>
@@ -331,26 +390,29 @@ let timerLocked = false;
     socket.on("connect", () => {
       mySocketId = socket.id;
     });
-
+socket.on("openRooms", (rooms) => {
+  renderOpenRooms(rooms);
+});
     function createRoom() {
       const nick = document.getElementById("nick").value.trim();
       if (!nick) return;
       socket.emit("createRoom", { nick });
     }
 
-   function joinRoom() {
+function joinRoom(roomCodeFromCard = null) {
   const nick = document.getElementById("nick").value.trim();
-  const roomCode = document.getElementById("roomCodeInput").value.trim().toUpperCase();
-
-  console.log("JOIN DENEME:", nick, roomCode);
+  const roomCode = (roomCodeFromCard || document.getElementById("roomCodeInput").value.trim()).toUpperCase();
 
   if (!nick || !roomCode) {
     document.getElementById("error").innerText = "Nick ve oda kodu gir knk";
     return;
   }
 
+  document.getElementById("error").innerText = "";
+  document.getElementById("requestStatus").innerText = "";
   currentRoomCode = roomCode;
-  socket.emit("joinRoom", { nick, roomCode });
+
+  socket.emit("requestJoinRoom", { nick, roomCode });
 }
 
     function toggleReady() {
@@ -423,6 +485,11 @@ function updateLivesDisplay() {
   document.getElementById("remainingLives").innerText = maxWrong - wrongCount;
 }
 
+function stopTickSound() {
+  tickSound.pause();
+  tickSound.currentTime = 0;
+}
+
 function updateTimerDisplay() {
   const timerEl = document.getElementById("turnTimerText");
   const box = document.getElementById("timerBox");
@@ -432,13 +499,16 @@ function updateTimerDisplay() {
 
   if (turnTime <= 3) {
     box.classList.add("timerDanger");
-    tickSound.currentTime = 0;
-    tickSound.play().catch(() => {});
+
+    if (tickSound.paused) {
+      tickSound.currentTime = 0;
+      tickSound.play().catch(() => {});
+    }
   } else {
     box.classList.remove("timerDanger");
+    stopTickSound();
   }
 }
-
   
 
 function stopTurnTimer() {
@@ -446,6 +516,7 @@ function stopTurnTimer() {
     clearInterval(turnTimer);
     turnTimer = null;
   }
+  stopTickSound();
 }
 
 function startTurnTimer() {
@@ -471,6 +542,7 @@ function startTurnTimer() {
 }
 
 function resetTurnTimer() {
+  stopTickSound();
   turnTime = 10;
   timerLocked = false;
   updateTimerDisplay();
@@ -647,12 +719,50 @@ function guessLetter(letter, btn) {
 
   renderPlayers(players);
 });
+    socket.on("joinRequestSent", ({ message }) => {
+  document.getElementById("requestStatus").innerText = message;
+});
 
-    socket.on("roomUpdated", (players) => {
-      document.getElementById("menu").classList.add("hidden");
-      document.getElementById("lobby").classList.remove("hidden");
-      renderPlayers(players);
-    });
+socket.on("joinAccepted", ({ roomCode, players }) => {
+  currentRoomCode = roomCode;
+  document.getElementById("menu").classList.add("hidden");
+  document.getElementById("lobby").classList.remove("hidden");
+  document.getElementById("roomCodeText").innerText = roomCode;
+  document.getElementById("requestStatus").innerText = "Odaya kabul edildin ✅";
+  renderPlayers(players);
+});
+
+socket.on("joinRejected", ({ message }) => {
+  document.getElementById("requestStatus").innerText = message || "Katılma talebiniz reddedildi";
+});
+
+socket.on("joinRequestReceived", (req) => {
+  if (!window.pendingJoinRequests) {
+    window.pendingJoinRequests = [];
+  }
+
+  const alreadyExists = window.pendingJoinRequests.some((x) => x.socketId === req.socketId);
+  if (!alreadyExists) {
+    window.pendingJoinRequests.push(req);
+  }
+
+  renderJoinRequests(window.pendingJoinRequests);
+});
+
+socket.on("roomUpdated", (players) => {
+  document.getElementById("menu").classList.add("hidden");
+  document.getElementById("lobby").classList.remove("hidden");
+  renderPlayers(players);
+
+  if (!window.pendingJoinRequests) {
+    window.pendingJoinRequests = [];
+  }
+
+  const playerIds = new Set(players.map(p => p.id));
+  window.pendingJoinRequests = window.pendingJoinRequests.filter(req => !playerIds.has(req.socketId));
+  renderJoinRequests(window.pendingJoinRequests);
+});
+    
 
     socket.on("showWordScreen", ({ round, totalRounds }) => {
       document.getElementById("lobby").classList.add("hidden");
@@ -742,6 +852,81 @@ startTurnTimer();
   });
 
   document.getElementById("hostControls").classList.toggle("hidden", !isHost);
+}
+    function renderOpenRooms(rooms) {
+  const box = document.getElementById("openRoomsList");
+  if (!box) return;
+
+  box.innerHTML = "";
+
+  if (!rooms.length) {
+    box.innerHTML = `<p style="color:#cbd5e1;">Şu an açık oda yok knk</p>`;
+    return;
+  }
+
+  rooms.forEach((room) => {
+    const div = document.createElement("div");
+    div.className = "roomCard";
+    div.innerHTML = `
+      <div class="roomCardTop">
+        <div>
+          <b>Oda:</b> ${room.roomCode}<br>
+          <b>Host:</b> ${room.hostNick}<br>
+          <b>Oyuncu:</b> ${room.playerCount}/${room.maxPlayers}
+        </div>
+        <div>
+          <button class="smallBtn" onclick="joinRoom('${room.roomCode}')">Katılma Talebi Gönder</button>
+        </div>
+      </div>
+    `;
+    box.appendChild(div);
+  });
+}
+
+function renderJoinRequests(requests) {
+  const box = document.getElementById("joinRequests");
+  const wrapper = document.getElementById("joinRequestsBox");
+  if (!box || !wrapper) return;
+
+  if (!isHost) {
+    wrapper.classList.add("hidden");
+    return;
+  }
+
+  wrapper.classList.remove("hidden");
+  box.innerHTML = "";
+
+  if (!requests.length) {
+    box.innerHTML = `<p style="color:#cbd5e1;">Bekleyen talep yok</p>`;
+    return;
+  }
+
+  requests.forEach((req) => {
+    const row = document.createElement("div");
+    row.className = "requestRow";
+    row.innerHTML = `
+      <div><b>${req.nick}</b> odaya katılmak istiyor</div>
+      <div>
+        <button class="smallBtn acceptBtn" onclick="acceptJoinRequest('${req.socketId}')">Kabul</button>
+        <button class="smallBtn rejectBtn" onclick="rejectJoinRequest('${req.socketId}')">Reddet</button>
+      </div>
+    `;
+    box.appendChild(row);
+  });
+}
+
+function acceptJoinRequest(socketId) {
+  socket.emit("acceptJoinRequest", {
+    roomCode: currentRoomCode,
+    socketId
+  });
+}
+
+function rejectJoinRequest(socketId) {
+  socket.emit("rejectJoinRequest", {
+    roomCode: currentRoomCode,
+    socketId
+  });
 }
    document.addEventListener("click", () => {
   correctSound.play().then(() => {
