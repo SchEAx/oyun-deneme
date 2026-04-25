@@ -299,16 +299,37 @@ socket.on("roomUpdated", (payload) => {
 });
 
 socket.on("showWordScreen", ({ round, totalRounds, mode, category, difficulty, hostId: hId }) => {
-  gameMode = mode || gameMode; gameCategory = category || gameCategory; gameDifficulty = difficulty || gameDifficulty; hostId = hId || hostId;
-  lobby.classList.add("hidden"); roundScreen.classList.add("hidden"); gameOverScreen.classList.add("hidden"); wordScreen.classList.remove("hidden"); joinRequestsBox.classList.add("hidden");
-  submitStatus.innerText = "Henüz gönderim yapılmadı"; wordInput.value = ""; hintInput.value = ""; wordRoundInfo.innerText = `Tur ${round} / ${totalRounds}`;
+  gameMode = mode || gameMode;
+  gameCategory = category || gameCategory;
+  gameDifficulty = difficulty || gameDifficulty;
+
+  const currentHost = (currentPlayers || []).find(p => p.host);
+  hostId = hId || currentHost?.id || hostId;
+  const iAmHost = mySocketId === hostId || !!((currentPlayers || []).find(p => p.id === mySocketId)?.host);
+
+  lobby.classList.add("hidden");
+  roundScreen.classList.add("hidden");
+  gameOverScreen.classList.add("hidden");
+  wordScreen.classList.remove("hidden");
+  joinRequestsBox.classList.add("hidden");
+
+  submitStatus.innerText = "Henüz gönderim yapılmadı";
+  wordInput.value = "";
+  hintInput.value = "";
+  wordRoundInfo.innerText = `Tur ${round} / ${totalRounds}`;
+
   const randomMode = gameCategory !== "manual";
-  const battleManualWaiting = gameMode === "battle" && gameCategory === "manual" && mySocketId !== hostId;
+  const battleManualWaiting = gameMode === "battle" && gameCategory === "manual" && !iAmHost;
+
   manualWordInputs.classList.toggle("hidden", randomMode || battleManualWaiting);
-  randomWordInfo.classList.toggle("hidden", !randomMode || !isHost);
-  wordScreenTitle.innerText = randomMode ? "Sistem Kelime Seçecek" : (battleManualWaiting ? "Host kelime giriyor, bekle knk" : "Kelime ve İpucu Gir");
-  if (randomMode && !isHost) submitStatus.innerText = "Host turu başlatınca sistem kelime verecek.";
-  if (battleManualWaiting) submitStatus.innerText = "Battle modunda kelimeyi host giriyor.";
+  randomWordInfo.classList.toggle("hidden", !randomMode || !iAmHost);
+
+  wordScreenTitle.innerText = randomMode
+    ? "Sistem Kelime Seçecek"
+    : (battleManualWaiting ? "Host kelime giriyor, bekle knk" : "Kelime ve İpucu Gir");
+
+  if (randomMode && !iAmHost) submitStatus.innerText = "Host turu başlatınca sistem kelime verecek.";
+  if (battleManualWaiting) submitStatus.innerText = "Battle modunda kelimeyi sadece host giriyor.";
 });
 socket.on("submissionUpdate", ({ submittedCount, totalPlayers }) => submitStatus.innerText = `Gönderilen kelime sayısı: ${submittedCount}/${totalPlayers}`);
 
@@ -324,7 +345,7 @@ socket.on("startRound", ({ word, hint, ownerId, players, round, totalRounds, mod
   startTurnTimer(); startChaosMode();
 });
 socket.on("scoresUpdated", renderScoreboard);
-socket.on("battleWinner", ({ winnerNick, players }) => { renderScoreboard(players); gameStatus.innerText = `Battle kazananı: ${winnerNick} ⚔️`; disableAllLetterButtons(); showNextRoundButton(); setTimeout(finishRound, 1200); });
+socket.on("battleWinner", ({ winnerNick, players }) => { renderScoreboard(players); gameStatus.innerText = `Battle kazananı: ${winnerNick} ⚔️ Yeni tura geçiliyor...`; disableAllLetterButtons(); stopTurnTimer(); stopChaosMode(); nextRoundBtn.classList.add("hidden"); });
 socket.on("gameFinished", ({ players }) => { stopTurnTimer(); stopChaosMode(); wordScreen.classList.add("hidden"); roundScreen.classList.add("hidden"); lobby.classList.add("hidden"); joinRequestsBox.classList.add("hidden"); gameOverScreen.classList.remove("hidden"); renderFinalRanking(players); });
 socket.on("errorMessage", (msg) => error.innerText = msg);
 
