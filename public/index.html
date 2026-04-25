@@ -274,12 +274,29 @@ function guessLetter(letter, btn) {
   if (wrongCount >= maxWrong) loseRound();
 }
 
+function normalizePlayersPayload(value) {
+  if (Array.isArray(value)) return value;
+  if (value && Array.isArray(value.players)) return value.players;
+  if (value && value.players && Array.isArray(value.players.players)) return value.players.players;
+  return [];
+}
+
 socket.on("roomCreated", ({ roomCode, players, settings }) => { currentRoomCode = roomCode; isHost = true; applySettings(settings); menu.classList.add("hidden"); lobby.classList.remove("hidden"); roomCodeText.innerText = roomCode; hostControls.classList.remove("hidden"); renderPlayers(players); });
 socket.on("joinRequestSent", ({ message }) => requestStatus.innerText = message);
 socket.on("joinAccepted", ({ roomCode, players, settings }) => { currentRoomCode = roomCode; applySettings(settings); menu.classList.add("hidden"); lobby.classList.remove("hidden"); roomCodeText.innerText = roomCode; requestStatus.innerText = "Odaya kabul edildin ✅"; renderPlayers(players); });
 socket.on("joinRejected", ({ message }) => requestStatus.innerText = message || "Katılma talebiniz reddedildi");
 socket.on("joinRequestReceived", (req) => { window.pendingJoinRequests ||= []; if (!window.pendingJoinRequests.some(x=>x.socketId===req.socketId)) window.pendingJoinRequests.push(req); renderJoinRequests(window.pendingJoinRequests); });
-socket.on("roomUpdated", (payload) => { const players = Array.isArray(payload) ? payload : payload.players; applySettings(payload.settings || {}); menu.classList.add("hidden"); lobby.classList.remove("hidden"); renderPlayers(players); window.pendingJoinRequests ||= []; const ids = new Set(players.map(p=>p.id)); window.pendingJoinRequests = window.pendingJoinRequests.filter(req=>!ids.has(req.socketId)); renderJoinRequests(window.pendingJoinRequests); });
+socket.on("roomUpdated", (payload) => {
+  const players = normalizePlayersPayload(payload);
+  applySettings(payload?.settings || {});
+  menu.classList.add("hidden");
+  lobby.classList.remove("hidden");
+  renderPlayers(players);
+  window.pendingJoinRequests ||= [];
+  const ids = new Set(players.map(p => p.id));
+  window.pendingJoinRequests = window.pendingJoinRequests.filter(req => !ids.has(req.socketId));
+  renderJoinRequests(window.pendingJoinRequests);
+});
 
 socket.on("showWordScreen", ({ round, totalRounds, mode, category, difficulty, hostId: hId }) => {
   gameMode = mode || gameMode; gameCategory = category || gameCategory; gameDifficulty = difficulty || gameDifficulty; hostId = hId || hostId;
@@ -312,7 +329,7 @@ socket.on("gameFinished", ({ players }) => { stopTurnTimer(); stopChaosMode(); w
 socket.on("errorMessage", (msg) => error.innerText = msg);
 
 function renderPlayers(players) {
-  players = players || []; currentPlayers = players; playersBox = document.getElementById("players"); playersBox.innerHTML = "";
+  players = normalizePlayersPayload(players); currentPlayers = players; playersBox = document.getElementById("players"); playersBox.innerHTML = "";
   const me = players.find(p => p.id === mySocketId); isHost = !!(me && me.host);
   players.forEach(p => { const div = document.createElement("div"); div.className = "player"; div.innerHTML = `<b>${p.nick}</b> ${p.host ? "👑 Host" : ""}<br>Durum: ${p.ready ? "✅ Hazır" : "❌ Hazır Değil"}<br>Puan: ${p.score || 0} <span class="rank">${rankName(p.score || 0)}</span>`; playersBox.appendChild(div); });
   hostControls.classList.toggle("hidden", !isHost);
