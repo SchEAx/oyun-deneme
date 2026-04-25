@@ -1,4 +1,4 @@
-const CACHE_NAME = "kelime-arenasi-v3";
+const CACHE_NAME = "kelime-arenasi-v4-upgrade";
 const urlsToCache = [
   "/",
   "/index.html",
