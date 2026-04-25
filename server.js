@@ -151,6 +151,7 @@ function startRoundForRoom(roomCode) {
     const sub = room.submissions[host.id];
     const settings = getDifficultySettings(room.difficulty);
     room.roundSolved = false;
+    room.transitioning = false;
     room.players.forEach((p) => {
       io.to(p.id).emit("startRound", {
         ownerId: host.id,
@@ -235,6 +236,7 @@ function goNextRoundOrFinish(roomCode) {
   room.roundFinished = new Set();
   room.submissions = {};
   room.roundSolved = false;
+  room.transitioning = false;
   io.to(roomCode).emit("showWordScreen", {
     round: room.currentRound,
     totalRounds: TOTAL_ROUNDS,
@@ -403,6 +405,12 @@ io.on("connection", (socket) => {
       room.roundSolved = true;
       guesser.score += 100;
       io.to(roomCode).emit("battleWinner", { winnerId: guesser.id, winnerNick: guesser.nick, players: room.players });
+      io.to(roomCode).emit("scoresUpdated", room.players);
+      if (!room.transitioning) {
+        room.transitioning = true;
+        setTimeout(() => goNextRoundOrFinish(roomCode), 2200);
+      }
+      return;
     }
     io.to(roomCode).emit("scoresUpdated", room.players);
   });
@@ -410,9 +418,11 @@ io.on("connection", (socket) => {
   socket.on("roundFinished", ({ roomCode }) => {
     const room = rooms[roomCode];
     if (!room) return;
+    if (room.transitioning) return;
     room.roundFinished.add(socket.id);
-    if (room.roundFinished.size >= room.players.length || room.mode === "battle") {
-      setTimeout(() => goNextRoundOrFinish(roomCode), 500);
+    if (room.roundFinished.size >= room.players.length) {
+      room.transitioning = true;
+      setTimeout(() => goNextRoundOrFinish(roomCode), 700);
     }
   });
 
