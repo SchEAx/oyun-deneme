@@ -60,6 +60,16 @@ function getDifficultySettings(difficulty) {
   return { maxWrong: 10, classicTime: 10, fastTotal: 30 };
 }
 
+
+function roomSettings(room) {
+  return {
+    mode: room.mode,
+    category: room.category,
+    difficulty: room.difficulty,
+    ...getDifficultySettings(room.difficulty)
+  };
+}
+
 function pickRandomWord(category) {
   const key = category && WORD_BANK[category] ? category : "cleanRandom";
   const list = WORD_BANK[key];
@@ -258,7 +268,7 @@ io.on("connection", (socket) => {
     };
 
     socket.join(roomCode);
-    socket.emit("roomCreated", { roomCode, players: rooms[roomCode].players, settings: rooms[roomCode] });
+    socket.emit("roomCreated", { roomCode, players: rooms[roomCode].players, settings: roomSettings(rooms[roomCode]) });
     broadcastOpenRooms();
   });
 
@@ -291,8 +301,8 @@ io.on("connection", (socket) => {
     const request = room.pendingRequests.splice(requestIndex, 1)[0];
     room.players.push({ id: request.socketId, nick: request.nick, ready: false, host: false, score: 0, combo: 0 });
     io.sockets.sockets.get(request.socketId)?.join(roomCode);
-    io.to(request.socketId).emit("joinAccepted", { roomCode, players: room.players, settings: room });
-    io.to(roomCode).emit("roomUpdated", { players: room.players, settings: room });
+    io.to(request.socketId).emit("joinAccepted", { roomCode, players: room.players, settings: roomSettings(room) });
+    io.to(roomCode).emit("roomUpdated", { players: room.players, settings: roomSettings(room) });
     broadcastOpenRooms();
   });
 
@@ -313,7 +323,7 @@ io.on("connection", (socket) => {
     const player = room.players.find((p) => p.id === socket.id);
     if (!player) return;
     player.ready = !player.ready;
-    io.to(roomCode).emit("roomUpdated", { players: room.players, settings: room });
+    io.to(roomCode).emit("roomUpdated", { players: room.players, settings: roomSettings(room) });
   });
 
   socket.on("startGame", ({ roomCode }) => {
@@ -418,7 +428,7 @@ io.on("connection", (socket) => {
         if (room.players.length === 0) delete rooms[roomCode];
         else {
           if (!room.players.some((p) => p.host)) room.players[0].host = true;
-          io.to(roomCode).emit("roomUpdated", { players: room.players, settings: room });
+          io.to(roomCode).emit("roomUpdated", { players: room.players, settings: roomSettings(room) });
         }
         broadcastOpenRooms();
         break;
