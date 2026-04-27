@@ -49,15 +49,27 @@
     .timerDanger { animation: pulseTimer .8s infinite; background: linear-gradient(90deg,#dc2626,#ea580c) !important; }
     @keyframes pulseTimer { 50% { transform: scale(1.04); } }
     .modeCard { background: rgba(15,23,42,.72); padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,.08); }
+    .logo-wrap {
+  text-align: center;
+  margin-top: 18px;
+}
+
+.game-logo {
+  width: 260px;
+  max-width: 82%;
+  display: block;
+  margin: 0 auto 12px;
+  filter: drop-shadow(0 0 18px rgba(250, 204, 21, .65));
+}
     @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } .container { margin: 8px auto; } #wordDisplay { font-size: 24px; } .letterBox { min-width: 29px; height: 40px; } #letters button { min-width: 38px; padding: 10px 12px; } }
   </style>
 </head>
 <body>
 
 
-  <div style="text-align:center; margin-top:20px;">
-<img src="logo.png" 
-     style="width:200px; max-width:80%; filter: drop-shadow(0 0 10px gold);">
+
+<div class="logo-wrap">
+  <img src="/logo.png?v=7" alt="Kelime Arenası Logo" class="game-logo">
 </div>
   
 <div class="container">
