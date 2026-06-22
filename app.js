@@ -1,5 +1,5 @@
 const SUPABASE_URL = 'https://cgcdsvbdkubntmrqutxl.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnY2RzdmJka3VibnRtcnF1dHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMjE1NCwiZXhwIjoyMDk3Njk4MTU0fQ.1QUhjyJyC9cm5vNpP3zDPhXHdUEb5xc9bicRPrLg-Rs';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnY2RzdmJka3VibnRtcnF1dHhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMjIxNTQsImV4cCI6MjA5NzY5ODE1NH0.1QUhjyJyC9cm5vNpP3zDPhXHdUEb5xc9bicRPrLg-Rs';
 const money = new Intl.NumberFormat('tr-TR', { style:'currency', currency:'TRY' });
 const todayISO = new Date().toISOString().slice(0,10);
 const currentMonth = todayISO.slice(0,7);
