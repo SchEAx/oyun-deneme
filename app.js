@@ -46,12 +46,19 @@ function fillPersonSelects(){
     if(state.people.some(p=>p.id===old)) el.value=old;
   });
 }
-function summaryHTML(items){ return items.map(([label,value,type])=>`<div class="summary ${type||''}"><span>${label}</span><b>${money.format(value||0)}</b></div>`).join(''); }
+function summaryHTML(items){
+  return items.map(([label,value,type]) =>
+    `<div class="summary ${type||''}">
+      <span>${label}</span>
+      <b>${type === 'count' ? value : money.format(value||0)}</b>
+    </div>`
+  ).join('');
+}
 function renderGlobalSummary(){
   const total = state.advances.reduce((s,a)=>s+Number(a.amount||0),0);
   const paid = state.deductions.reduce((s,d)=>s+Number(d.amount||0),0);
   const open = Math.max(0,total-paid);
-  $('globalSummary').innerHTML = summaryHTML([['Toplam Avans',total],['Toplam Kesilen',paid,'ok'],['Açık Avans',open,'danger'],['Personel',state.people.length]]);
+  $('globalSummary').innerHTML = summaryHTML([['Toplam Avans',total],['Toplam Kesilen',paid,'ok'],['Açık Avans',open,'danger'],['Personel',state.people.length,'count']]);
 }
 function renderPeople(){
   const box=$('personList'); box.innerHTML='';
