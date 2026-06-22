@@ -6,18 +6,18 @@
   <meta name="theme-color" content="#101827" />
   <title>Garage İstanbul | Avans Takip</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="style.css?v=2" />
+  <link rel="stylesheet" href="style.css?v=4" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">NUHASEBE</p>
+        <p class="eyebrow">Garage İstanbul</p>
         <h1>Avans Takip</h1>
         <span id="todayText"></span>
       </div>
-      <button id="syncBtn" class="ghost">Yenile</button>
+      <div class="top-actions"><button id="notifyBtn" class="ghost">Bildirim Aç</button><button id="syncBtn" class="ghost">Yenile</button></div>
     </header>
 
     <section id="setupCard" class="card setup-card hidden">
@@ -48,7 +48,7 @@
           </div>
           <div class="card soft">
             <h2>Özet</h2>
-            <div id="globalSummary" class="summary-grid"></div>
+            <div id="globalSummary" class="summary-grid"></div><div id="dueBox" class="due-box"></div>
           </div>
         </div>
       </section>
@@ -83,6 +83,27 @@
             <h2>Personel ekle / düzenle</h2>
             <label>Personel adı<input id="personName" placeholder="Ad Soyad"></label>
             <label>Maaş<input id="personSalary" type="number" min="0" step="0.01" inputmode="decimal" placeholder="30000"></label>
+            <label>Ödeme tipi
+              <select id="personPayType">
+                <option value="monthly">Aylık</option>
+                <option value="weekly">Haftalık</option>
+              </select>
+            </label>
+            <label id="monthlyField">Maaş günü
+              <select id="personSalaryDay">
+                <option value="1">Her ayın 1’i</option><option value="2">Her ayın 2’si</option><option value="3">Her ayın 3’ü</option><option value="4">Her ayın 4’ü</option><option value="5">Her ayın 5’i</option>
+                <option value="6">Her ayın 6’sı</option><option value="7">Her ayın 7’si</option><option value="8">Her ayın 8’i</option><option value="9">Her ayın 9’u</option><option value="10">Her ayın 10’u</option>
+                <option value="11">Her ayın 11’i</option><option value="12">Her ayın 12’si</option><option value="13">Her ayın 13’ü</option><option value="14">Her ayın 14’ü</option><option value="15" selected>Her ayın 15’i</option>
+                <option value="16">Her ayın 16’sı</option><option value="17">Her ayın 17’si</option><option value="18">Her ayın 18’i</option><option value="19">Her ayın 19’u</option><option value="20">Her ayın 20’si</option>
+                <option value="21">Her ayın 21’i</option><option value="22">Her ayın 22’si</option><option value="23">Her ayın 23’ü</option><option value="24">Her ayın 24’ü</option><option value="25">Her ayın 25’i</option>
+                <option value="26">Her ayın 26’sı</option><option value="27">Her ayın 27’si</option><option value="28">Her ayın 28’i</option><option value="29">Her ayın 29’u</option><option value="30">Her ayın 30’u</option><option value="31">Her ayın 31’i</option>
+              </select>
+            </label>
+            <label id="weeklyField" class="hidden">Haftalık ödeme günü
+              <select id="personSalaryWeekday">
+                <option value="1">Pazartesi</option><option value="2">Salı</option><option value="3">Çarşamba</option><option value="4">Perşembe</option><option value="5">Cuma</option><option value="6">Cumartesi</option><option value="0">Pazar</option>
+              </select>
+            </label>
             <button id="savePersonBtn">Personeli Kaydet</button>
           </div>
           <div class="card">
@@ -94,6 +115,6 @@
     </main>
   </div>
   <div id="toast"></div>
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
